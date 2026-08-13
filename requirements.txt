@@ -2,3 +2,4 @@ streamlit
 google-genai
 streamlit-audiorecorder
 gtts
+audioop-lts

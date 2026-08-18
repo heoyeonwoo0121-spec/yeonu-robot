@@ -61,26 +61,28 @@ def TTS(response):
 ##### 메인 함수 #####
 def main():
     st.set_page_config(
-        page_title="음성 비서 프로그램",
+        page_title="음식 추천 음성 비서",
         layout="wide",
     )
 
-    st.header("음성 비서 프로그램")
+    st.header("음식 추천 음성 비서")
     st.markdown("---")
 
-    with st.expander("음성비서 프로그램에 관하여", expanded=True):
+    with st.expander("음식 추천 음성 비서에 관하여", expanded=True):
         st.write(
             """
-            - 음성비서 프로그램의 UI는 스트림릿을 활용하여 만들었습니다.
+            - 이 프로그램은 음성으로 질문하면 상황에 맞는 음식을 추천해주는 비서입니다.
+            - UI는 스트림릿(Streamlit)을 활용하여 만들었습니다.
             - STT(Speech-To-Text)는 Google Gemini를 활용하였습니다.
-            - 답변은 Google Gemini 모델을 활용하였습니다.
+            - 음식 추천 답변은 Google Gemini 모델을 활용하였습니다.
             - TTS(Text-To-Speech)는 구글의 Google Translate TTS를 활용하였습니다.
             """
         )
         st.markdown("")
 
     SYSTEM_INSTRUCTION = (
-        "너는 사려 깊은 비서야. 모든 질문에 25단어 이내로, 한국어로 답해."
+        "너는 음식 추천 전문 비서야. 사용자의 상황, 기분, 가진 재료, 취향을 고려해 "
+        "구체적인 음식이나 메뉴를 한국어로 추천해. 답변은 50단어 이내로 간결하게 해."
     )
 
     # session state 초기화

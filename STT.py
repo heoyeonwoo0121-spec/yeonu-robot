@@ -115,6 +115,22 @@ def load_css():
     )
 
 
+##### 대화 처리(질문 -> 답변 -> 음성) #####
+def handle_question(question, model, client):
+    """질문 텍스트를 받아 답변 생성 후 세션에 저장."""
+    now = datetime.now().strftime("%H:%M")
+    st.session_state["chat"] = st.session_state["chat"] + [("user", now, question)]
+    st.session_state["messages"] = st.session_state["messages"] + [("user", question)]
+
+    response = ask_gemini(st.session_state["messages"], model, client)
+
+    st.session_state["messages"] = st.session_state["messages"] + [("model", response)]
+    now = datetime.now().strftime("%H:%M")
+    st.session_state["chat"] = st.session_state["chat"] + [("bot", now, response)]
+
+    return response
+
+
 ##### 메인 함수 #####
 def main():
     st.set_page_config(
@@ -130,7 +146,7 @@ def main():
         """
         <div class="title-card">
             <h1>🍽️ 음식 추천 음성 비서</h1>
-            <p>말로 물어보면, 당신에게 딱 맞는 메뉴를 추천해드려요!</p>
+            <p>말로 물어보거나 직접 입력하면, 딱 맞는 메뉴를 추천해드려요!</p>
         </div>
         """,
         unsafe_allow_html=True,
@@ -140,8 +156,9 @@ def main():
     with st.expander("ℹ️ 음식 추천 음성 비서에 관하여", expanded=True):
         st.write(
             """
-            - 이 프로그램은 음성으로 질문하면 상황에 맞는 음식을 추천해주는 비서입니다.
+            - 이 프로그램은 음성 또는 텍스트로 질문하면 상황에 맞는 음식을 추천해주는 비서입니다.
             - 왼쪽 사이드바에서 **음식 카테고리**를 골라 원하는 종류로 추천받을 수 있습니다.
+            - 📱 휴대폰에서는 마이크 녹음이 어려울 수 있으니 **텍스트 입력**을 이용해 주세요.
             - UI는 스트림릿(Streamlit)을 활용하여 만들었습니다.
             - STT(Speech-To-Text)는 Google Gemini를 활용하였습니다.
             - 음식 추천 답변은 Google Gemini 모델을 활용하였습니다.
@@ -232,53 +249,63 @@ def main():
 
     client = genai.Client(api_key=st.session_state["GEMINI_API"])
 
+    new_response = None  # 이번 실행에서 새로 만들어진 답변(있으면 음성 재생)
+
     # 기능 구현 공간
     col1, col2 = st.columns(2)
     with col1:
         st.markdown('<div class="section-title">🎤 질문하기</div>', unsafe_allow_html=True)
         st.caption(f"현재 카테고리: **{category}**")
+
+        # (1) 음성 녹음으로 질문
         audio = audiorecorder("클릭하여 녹음하기", "녹음 중...")
         if (audio.duration_seconds > 0) and (st.session_state["check_reset"] == False):
             st.audio(audio.export().read())
             question = STT(audio, client)
+            new_response = handle_question(question, model, client)
 
-            now = datetime.now().strftime("%H:%M")
-            st.session_state["chat"] = st.session_state["chat"] + [("user", now, question)]
-            st.session_state["messages"] = st.session_state["messages"] + [("user", question)]
+        st.markdown("###### ⌨️ 또는 텍스트로 질문 (컴퓨터/휴대폰 공통)")
+        # (2) 텍스트로 질문 - 폼으로 묶어 엔터/버튼 모두 전송 가능
+        with st.form(key="text_form", clear_on_submit=True):
+            text_question = st.text_input(
+                label="질문 입력",
+                placeholder="예: 비 오는 날 먹기 좋은 메뉴 추천해줘",
+                label_visibility="collapsed",
+            )
+            submitted = st.form_submit_button("전송하기")
+
+        if submitted and text_question.strip() and (st.session_state["check_reset"] == False):
+            new_response = handle_question(text_question.strip(), model, client)
 
     with col2:
         st.markdown('<div class="section-title">💬 질문/답변</div>', unsafe_allow_html=True)
-        if (audio.duration_seconds > 0) and (st.session_state["check_reset"] == False):
-            response = ask_gemini(st.session_state["messages"], model, client)
 
-            st.session_state["messages"] = st.session_state["messages"] + [("model", response)]
+        # 대화 내역 출력
+        for sender, time, message in st.session_state["chat"]:
+            if sender == "user":
+                st.write(
+                    f'<div style="display:flex;align-items:center;margin-bottom:4px;">'
+                    f'<div style="background-color:#ff6a88;color:white;border-radius:14px;'
+                    f'padding:8px 14px;margin-right:8px;box-shadow:0 2px 6px rgba(255,106,136,0.25);">{message}</div>'
+                    f'<div style="font-size:0.8rem;color:gray;">{time}</div></div>',
+                    unsafe_allow_html=True,
+                )
+                st.write("")
+            else:
+                st.write(
+                    f'<div style="display:flex;align-items:center;justify-content:flex-end;margin-bottom:4px;">'
+                    f'<div style="background-color:#fff;border:1px solid #ffd9c2;border-radius:14px;'
+                    f'padding:8px 14px;margin-left:8px;box-shadow:0 2px 6px rgba(0,0,0,0.06);">🍽️ {message}</div>'
+                    f'<div style="font-size:0.8rem;color:gray;">{time}</div></div>',
+                    unsafe_allow_html=True,
+                )
+                st.write("")
 
-            now = datetime.now().strftime("%H:%M")
-            st.session_state["chat"] = st.session_state["chat"] + [("bot", now, response)]
+        # 이번에 새로 생성된 답변이 있으면 음성으로 재생
+        if new_response is not None:
+            TTS(new_response)
 
-            for sender, time, message in st.session_state["chat"]:
-                if sender == "user":
-                    st.write(
-                        f'<div style="display:flex;align-items:center;margin-bottom:4px;">'
-                        f'<div style="background-color:#ff6a88;color:white;border-radius:14px;'
-                        f'padding:8px 14px;margin-right:8px;box-shadow:0 2px 6px rgba(255,106,136,0.25);">{message}</div>'
-                        f'<div style="font-size:0.8rem;color:gray;">{time}</div></div>',
-                        unsafe_allow_html=True,
-                    )
-                    st.write("")
-                else:
-                    st.write(
-                        f'<div style="display:flex;align-items:center;justify-content:flex-end;margin-bottom:4px;">'
-                        f'<div style="background-color:#fff;border:1px solid #ffd9c2;border-radius:14px;'
-                        f'padding:8px 14px;margin-left:8px;box-shadow:0 2px 6px rgba(0,0,0,0.06);">🍽️ {message}</div>'
-                        f'<div style="font-size:0.8rem;color:gray;">{time}</div></div>',
-                        unsafe_allow_html=True,
-                    )
-                    st.write("")
-
-            TTS(response)
-        else:
-            st.session_state["check_reset"] = False
+        st.session_state["check_reset"] = False
 
 
 if __name__ == "__main__":

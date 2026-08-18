@@ -15,7 +15,7 @@ def STT(audio, client):
 
     uploaded = client.files.upload(file=filename)
     response = client.models.generate_content(
-        model="gemini-2.5-flash",
+        model="gemini-flash-latest",
         contents=[
             "이 오디오에 담긴 말을 그대로 받아써 줘. 설명이나 다른 말은 붙이지 말고 내용만 출력해.",
             uploaded,
@@ -215,7 +215,7 @@ def main():
         st.markdown("### 🤖 Gemini 모델")
         model = st.radio(
             label="모델 선택",
-            options=["gemini-2.5-flash", "gemini-2.5-pro"],
+            options=["gemini-flash-latest", "gemini-pro-latest"],
         )
 
         st.markdown("---")

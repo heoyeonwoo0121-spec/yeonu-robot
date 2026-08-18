@@ -159,7 +159,7 @@ def main():
         st.write(
             """
             - 이 프로그램은 음성 또는 텍스트로 질문하면 상황에 맞는 음식을 추천해주는 비서입니다.
-            - 왼쪽 사이드바에서 **음식 카테고리**와 **말투(톤)**를 골라 원하는 스타일로 추천받을 수 있습니다.
+            - 왼쪽 사이드바에서 **지역**, **음식 카테고리**, **말투(톤)**를 골라 원하는 스타일로 추천받을 수 있습니다.
             - 오른쪽 **질문/답변**에서 달력으로 날짜를 고르면 그날의 대화만 볼 수 있습니다.
             - 📱 휴대폰에서는 마이크 녹음이 어려울 수 있으니 **텍스트 입력**을 이용해 주세요.
             - UI는 스트림릿(Streamlit)을 활용하여 만들었습니다.
@@ -215,6 +215,14 @@ def main():
 
         st.markdown("---")
 
+        st.markdown("### 📍 위치(지역)")
+        location = st.text_input(
+            label="지역을 입력하면 그 동네 기준으로 추천해요",
+            placeholder="예: 서울 강남역, 부산 서면, 우리 동네",
+        )
+
+        st.markdown("---")
+
         st.markdown("### 🍜 음식 카테고리")
         category = st.radio(
             label="추천받을 음식 종류를 골라주세요",
@@ -233,18 +241,29 @@ def main():
 
         st.markdown("### 🤖 Gemini 모델")
         model = st.radio(
-            label="모델 선택",
-            options=["gemini-flash-latest", "gemini-pro-latest"],
+            label="모델 선택 (무료는 flash 권장)",
+            options=["gemini-flash-latest", "gemini-flash-lite-latest"],
         )
 
         st.markdown("---")
 
         reset_clicked = st.button(label="🔄 대화 초기화")
 
-    # 선택한 카테고리 + 톤을 반영한 시스템 지침 구성
+    # 위치 안내 문구 구성 (입력했을 때만 반영)
+    if location.strip():
+        location_guide = (
+            f"사용자의 현재 위치는 '{location.strip()}'이야. "
+            "그 지역에서 접하기 쉬운 음식이나 그 동네 분위기에 맞는 메뉴를 우선 추천해. "
+            "실제 특정 가게 이름을 확실히 알지 못하면 지어내지 말고 메뉴 위주로 추천해. "
+        )
+    else:
+        location_guide = ""
+
+    # 선택한 지역 + 카테고리 + 톤을 반영한 시스템 지침 구성
     SYSTEM_INSTRUCTION = (
         "너는 음식 추천 전문 비서야. 사용자의 상황, 기분, 가진 재료, 취향을 고려해 "
         "구체적인 음식이나 메뉴를 한국어로 추천해. "
+        f"{location_guide}"
         f"{CATEGORY_GUIDE[category]} "
         f"{TONE_GUIDE[tone]} "
         "답변은 50단어 이내로 해."
@@ -256,7 +275,7 @@ def main():
         st.session_state["messages"] = []
         st.session_state["check_reset"] = True
 
-    # 매 실행마다 첫 지침을 현재 선택된 카테고리/톤으로 최신화
+    # 매 실행마다 첫 지침을 현재 선택된 값들로 최신화
     if len(st.session_state["messages"]) == 0:
         st.session_state["messages"] = [("user", SYSTEM_INSTRUCTION)]
     else:
@@ -275,7 +294,8 @@ def main():
     col1, col2 = st.columns(2)
     with col1:
         st.markdown('<div class="section-title">🎤 질문하기</div>', unsafe_allow_html=True)
-        st.caption(f"현재 카테고리: **{category}** / 말투: **{tone}**")
+        loc_label = location.strip() if location.strip() else "지역 미설정"
+        st.caption(f"📍 {loc_label} / 카테고리: **{category}** / 말투: **{tone}**")
 
         # (1) 음성 녹음으로 질문
         audio = audiorecorder("클릭하여 녹음하기", "녹음 중...")
